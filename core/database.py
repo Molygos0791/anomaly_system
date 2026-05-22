@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, delete, event, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from core.config import DB_PATH
-from core.models import Alert, Base, Channel, DetectionRun, Device, Signal
+from core.models import Alert, Base, Channel, DetectionRun, Device, RealtimeAnomaly, Signal
 
 _engine = create_engine(
     f"sqlite:///{DB_PATH}",
@@ -341,6 +341,87 @@ def delete_alert(alert_id: int) -> bool:
             return False
         s.delete(a)
         return True
+
+
+# ---------- Realtime anomaly detail ----------
+def create_realtime_anomalies(
+    channel_id: int,
+    timestamps: Iterable[float],
+    values: Iterable[float],
+    scores: Iterable[float],
+    vote_counts: Iterable[int],
+    vote_threshold: int,
+    algorithms: str,
+    alert_id: int | None = None,
+    max_points: int = 500,
+) -> int:
+    """保存实时检测命中的异常点明细，返回写入条数。"""
+    ts = list(timestamps)[:max_points]
+    vs = list(values)[:max_points]
+    sc = list(scores)[:max_points]
+    vc = list(vote_counts)[:max_points]
+    n = min(len(ts), len(vs), len(sc), len(vc))
+    if n == 0:
+        return 0
+
+    rows = [
+        RealtimeAnomaly(
+            alert_id=alert_id,
+            channel_id=channel_id,
+            stream_ts=float(ts[i]),
+            value=float(vs[i]),
+            score=float(sc[i]),
+            vote_count=int(vc[i]),
+            vote_threshold=int(vote_threshold),
+            algorithms=algorithms,
+        )
+        for i in range(n)
+    ]
+    with get_session() as s:
+        s.add_all(rows)
+    return n
+
+
+def list_realtime_anomalies(
+    channel_id: int | None = None,
+    alert_id: int | None = None,
+    limit: int = 1000,
+) -> pd.DataFrame:
+    """查询实时异常点明细，按写入时间倒序返回 DataFrame。"""
+    with get_session() as s:
+        stmt = select(
+            RealtimeAnomaly.id,
+            RealtimeAnomaly.alert_id,
+            RealtimeAnomaly.channel_id,
+            RealtimeAnomaly.stream_ts,
+            RealtimeAnomaly.value,
+            RealtimeAnomaly.score,
+            RealtimeAnomaly.vote_count,
+            RealtimeAnomaly.vote_threshold,
+            RealtimeAnomaly.algorithms,
+            RealtimeAnomaly.created_at,
+        ).order_by(RealtimeAnomaly.created_at.desc(), RealtimeAnomaly.id.desc())
+        if channel_id is not None:
+            stmt = stmt.where(RealtimeAnomaly.channel_id == channel_id)
+        if alert_id is not None:
+            stmt = stmt.where(RealtimeAnomaly.alert_id == alert_id)
+        if limit:
+            stmt = stmt.limit(limit)
+        rows = s.execute(stmt).all()
+
+    columns = [
+        "id",
+        "alert_id",
+        "channel_id",
+        "stream_ts",
+        "value",
+        "score",
+        "vote_count",
+        "vote_threshold",
+        "algorithms",
+        "created_at",
+    ]
+    return pd.DataFrame(rows, columns=columns)
 
 
 # ---------- DetectionRun ----------

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy import signal
 from scipy import stats
 
 
@@ -50,3 +51,20 @@ def expand_window_labels(window_labels: np.ndarray, n: int, window: int, step: i
         if end < n:
             out[end] = int(lbl)
     return out
+
+
+def power_spectral_density(
+    x: np.ndarray,
+    sample_rate: float,
+    nperseg: int = 256,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return Welch PSD frequencies and power for a 1-D signal."""
+    x = np.asarray(x, dtype=float)
+    x = x[np.isfinite(x)]
+    if len(x) < 2:
+        return np.empty(0), np.empty(0)
+
+    fs = max(float(sample_rate), 1e-9)
+    seg = max(2, min(int(nperseg), len(x)))
+    freqs, psd = signal.welch(x, fs=fs, nperseg=seg)
+    return freqs, psd

@@ -50,6 +50,9 @@ class Channel(Base):
     alerts: Mapped[list["Alert"]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
+    realtime_anomalies: Mapped[list["RealtimeAnomaly"]] = relationship(
+        back_populates="channel", cascade="all, delete-orphan"
+    )
 
 
 class Signal(Base):
@@ -81,6 +84,30 @@ class Alert(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     channel: Mapped[Channel] = relationship(back_populates="alerts")
+    realtime_anomalies: Mapped[list["RealtimeAnomaly"]] = relationship(
+        back_populates="alert", cascade="all, delete-orphan"
+    )
+
+
+class RealtimeAnomaly(Base):
+    __tablename__ = "realtime_anomalies"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    alert_id: Mapped[int | None] = mapped_column(
+        ForeignKey("alerts.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channels.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    stream_ts: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    vote_count: Mapped[int] = mapped_column(Integer, default=0)
+    vote_threshold: Mapped[int] = mapped_column(Integer, default=1)
+    algorithms: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    channel: Mapped[Channel] = relationship(back_populates="realtime_anomalies")
+    alert: Mapped[Alert | None] = relationship(back_populates="realtime_anomalies")
 
 
 class DetectionRun(Base):

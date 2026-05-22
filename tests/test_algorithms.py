@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from algorithms.evaluation import evaluate
-from algorithms.features import extract_features, sliding_windows
+from algorithms.features import extract_features, power_spectral_density, sliding_windows
 from algorithms.ml import IsolationForestDetector, LOFDetector
 from algorithms.registry import build, list_algorithms
 from algorithms.statistical import IQRDetector, MADDetector, ThreeSigmaDetector
@@ -78,6 +78,16 @@ def test_sliding_window_short():
     x = np.array([1.0, 2.0])
     win = sliding_windows(x, window=10)
     assert win.shape == (0, 10)
+
+
+def test_power_spectral_density_smoke():
+    sample_rate = 100.0
+    t = np.arange(0, 1, 1 / sample_rate)
+    x = np.sin(2 * np.pi * 10 * t)
+    freqs, psd = power_spectral_density(x, sample_rate=sample_rate)
+    assert len(freqs) == len(psd)
+    assert len(freqs) > 0
+    assert np.isclose(freqs[np.argmax(psd)], 10.0)
 
 
 def test_evaluation(synthetic):

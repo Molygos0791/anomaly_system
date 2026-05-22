@@ -91,6 +91,29 @@ def test_alert_crud():
     assert db.delete_alert(a.id) is True
 
 
+def test_realtime_anomaly_detail():
+    d = db.create_device("M1")
+    c = db.create_channel(d.id, "vib")
+    a = db.create_alert(c.id, 0.0, 0.5, severity="warning", algorithm="three_sigma,mad")
+
+    inserted = db.create_realtime_anomalies(
+        alert_id=a.id,
+        channel_id=c.id,
+        timestamps=[0.1, 0.2],
+        values=[10.0, 12.0],
+        scores=[3.2, 4.1],
+        vote_counts=[2, 3],
+        vote_threshold=2,
+        algorithms="3-Sigma (统计), MAD (鲁棒统计)",
+    )
+
+    assert inserted == 2
+    rows = db.list_realtime_anomalies(channel_id=c.id)
+    assert len(rows) == 2
+    assert set(rows["alert_id"]) == {a.id}
+    assert rows["vote_threshold"].tolist() == [2, 2]
+
+
 def test_detection_run():
     d = db.create_device("M1")
     c = db.create_channel(d.id, "vib")

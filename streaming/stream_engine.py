@@ -18,13 +18,21 @@ class StreamPoint:
 class StreamEngine:
     """模拟实时数据源：按指定速率从给定数组推送数据点。"""
 
-    def __init__(self, values: np.ndarray, sample_rate: float = 100.0, buffer_size: int = 2000):
+    def __init__(
+        self,
+        values: np.ndarray,
+        sample_rate: float = 100.0,
+        buffer_size: int = 2000,
+        loop: bool = False,
+    ):
         self.values = np.asarray(values, dtype=float)
         self.sample_rate = sample_rate
+        self.loop = loop
         self.buffer: deque[StreamPoint] = deque(maxlen=buffer_size)
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._idx = 0
+        self._emitted = 0
         self._lock = threading.Lock()
 
     def start(self) -> None:
@@ -36,21 +44,36 @@ class StreamEngine:
 
     def _run(self) -> None:
         interval = 1.0 / max(1.0, self.sample_rate)
-        while not self._stop_event.is_set() and self._idx < len(self.values):
-            t = self._idx / self.sample_rate
+        while not self._stop_event.is_set():
+            if len(self.values) == 0:
+                break
+            if self._idx >= len(self.values):
+                if not self.loop:
+                    break
+                self._idx = 0
+            t = self._emitted / self.sample_rate
             with self._lock:
                 self.buffer.append(StreamPoint(timestamp=t, value=float(self.values[self._idx])))
             self._idx += 1
+            self._emitted += 1
             time.sleep(interval)
 
-    def stop(self) -> None:
+    def stop(self, wait: bool = True) -> None:
         self._stop_event.set()
+        if (
+            wait
+            and self._thread is not None
+            and self._thread.is_alive()
+            and threading.current_thread() is not self._thread
+        ):
+            self._thread.join(timeout=1.0)
 
     def reset(self) -> None:
         self.stop()
         with self._lock:
             self.buffer.clear()
             self._idx = 0
+            self._emitted = 0
 
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
@@ -66,4 +89,6 @@ class StreamEngine:
     def progress(self) -> float:
         if len(self.values) == 0:
             return 1.0
+        if self.loop:
+            return (self._idx % len(self.values)) / len(self.values)
         return min(1.0, self._idx / len(self.values))

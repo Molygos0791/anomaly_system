@@ -52,3 +52,15 @@ def test_stream_engine_reset():
     ts, vs = eng.snapshot()
     assert len(ts) == 0 and len(vs) == 0
     assert eng.progress == 0.0
+
+
+def test_stream_engine_loop():
+    vals = np.arange(3, dtype=float)
+    eng = StreamEngine(vals, sample_rate=1000.0, buffer_size=10, loop=True)
+    eng.start()
+    time.sleep(0.02)
+    eng.stop()
+    ts, vs = eng.snapshot()
+    assert len(vs) > len(vals)
+    assert set(np.unique(vs)).issubset(set(vals))
+    assert np.all(np.diff(ts) >= 0)
