@@ -1,165 +1,184 @@
-# 🏭 工业时序数据异常检测系统
+# 工业时序数据异常检测系统
 
-> 研究生 Python 课程作业 · 工业设备健康监控 MVP
+这是一个面向工业设备健康监控的 Python MVP 项目，提供 TDMS 数据接入、SQLite 数据管理、异常检测算法、流式仿真监控和告警管理等功能。
 
-一个端到端的工业时序数据异常检测系统：**TDMS 解析** + **SQLite CRUD** + **5 种异常检测算法** + **Streamlit 实时监控界面**。
+## 功能概览
 
-## ✨ 功能特性
+- TDMS 数据解析：基于 `nptdms` 读取工业时序数据，支持多设备、多通道数据导入。
+- 数据库管理：使用 SQLite + SQLAlchemy 管理设备、通道、信号、告警、检测记录和实时异常记录。
+- 异常检测算法：内置 3-Sigma、IQR、MAD、Isolation Forest、LOF。
+- 特征工程：支持滑动窗口特征提取，包括 mean、std、rms、peak-to-peak、kurtosis、skew。
+- 批量检测：对已导入通道数据执行全量检测，写入异常标记并生成告警。
+- 实时监控：通过后台线程和缓冲队列模拟实时数据流，展示动态曲线和健康分。
+- 算法评估：支持 Precision、Recall、F1、ROC-AUC、PR-AUC 等指标对比。
+- 告警中心：支持告警查询、状态确认、关闭、备注和 CSV 导出。
 
-- 📥 **TDMS 数据解析**：基于 `nptdms`，支持多通道、多设备
-- 🗄️ **完整 CRUD**：设备 / 通道 / 信号 / 告警 / 检测运行 5 张表，SQLAlchemy ORM
-- 🧠 **多算法异常检测**
-  - 统计法：3-Sigma、IQR、MAD（中位数绝对偏差，鲁棒）
-  - 机器学习：Isolation Forest、LOF
-  - 支持滑窗特征工程（mean / std / rms / 峰峰值 / 峭度 / 偏度）
-- 📊 **算法评估**：Precision / Recall / F1 / ROC-AUC / PR-AUC 横向对比
-- 🌊 **流式仿真**：后台线程 + 滑动窗口缓冲，模拟实时数据采集
-- ❤️ **健康评分**：0–100 分等级（优秀 / 良好 / 注意 / 警告 / 严重）
-- 🚨 **告警中心**：异常事件记录、状态确认、CSV 导出
-- ✅ **测试覆盖率 85%**（25 个测试用例）
+## 技术栈
 
-## 🏗️ 系统架构
+- Python 3.10+
+- Streamlit
+- Plotly
+- NumPy / pandas / SciPy
+- scikit-learn
+- nptdms
+- SQLite
+- SQLAlchemy 2.x
+- pytest / pytest-cov
 
-```
-┌─────────────────────────────────────────────────────┐
-│  UI 层 (Streamlit)                                  │
-│  实时监控 / 数据管理 / 批量检测 / 算法评估 / 告警中心 │
-└──────────────┬──────────────────────────────────────┘
-               │
-┌──────────────▼─────────┐  ┌──────────────────────┐
-│  算法层                 │  │  流式仿真引擎         │
-│  统计法 + ML + 评估     │◄─┤  threading + Queue   │
-└──────────────┬─────────┘  └──────────────────────┘
-               │
-┌──────────────▼──────────────────────────────────────┐
-│  存储层 (SQLite + SQLAlchemy ORM)                    │
-│  devices / channels / signals / alerts / detections │
-└──────────────▲──────────────────────────────────────┘
-               │
-┌──────────────┴──────────────────────────────────────┐
-│  数据接入层                                          │
-│  TDMS 解析 (nptdms) + 模拟器 (合成数据)              │
-└─────────────────────────────────────────────────────┘
-```
+## 项目结构
 
-## 📁 项目结构
-
-```
+```text
 anomaly_system/
-├── app.py                          # Streamlit 入口（首页 + KPI）
-├── pages/                          # 5 个功能页面
+├── app.py                         # Streamlit 启动入口
+├── pages/                         # Streamlit 页面
 │   ├── 1_📊_实时监控.py
 │   ├── 2_🗄️_数据管理.py
 │   ├── 3_🔍_批量检测.py
-│   ├── 4_📈_算法评估.py
 │   └── 5_🚨_告警中心.py
-├── core/
-│   ├── config.py                   # 全局配置
-│   ├── models.py                   # SQLAlchemy ORM 模型
-│   ├── database.py                 # CRUD repository
-│   └── health.py                   # 健康评分
-├── ingestion/
-│   ├── tdms_loader.py              # TDMS 解析
-│   └── simulator.py                # 合成数据生成（含 ground truth）
-├── algorithms/
-│   ├── base.py                     # BaseDetector 抽象类
-│   ├── statistical.py              # 3-Sigma / IQR / MAD
-│   ├── ml.py                       # IsolationForest / LOF
-│   ├── features.py                 # 滑窗特征工程
-│   ├── evaluation.py               # P/R/F1/ROC 评估
-│   └── registry.py                 # 算法注册表
-├── streaming/
-│   └── stream_engine.py            # 后台线程流式引擎
-├── tests/                          # 25 个测试，覆盖率 85%
-│   ├── test_database.py
-│   ├── test_tdms.py
-│   ├── test_algorithms.py
-│   └── test_health_and_stream.py
-├── data/                           # SQLite + 示例 TDMS
+├── core/                          # 配置、ORM、数据库访问、健康评分
+│   ├── config.py
+│   ├── database.py
+│   ├── health.py
+│   └── models.py
+├── ingestion/                     # TDMS 解析与模拟数据生成
+│   ├── simulator.py
+│   └── tdms_loader.py
+├── algorithms/                    # 异常检测算法与评估
+│   ├── base.py
+│   ├── evaluation.py
+│   ├── features.py
+│   ├── ml.py
+│   ├── registry.py
+│   └── statistical.py
+├── streaming/                     # 流式仿真引擎
+│   └── stream_engine.py
+├── tests/                         # 自动化测试
+├── docs/                          # 项目文档
+├── data/                          # 本地数据目录，存放 SQLite 和 TDMS 文件
 ├── requirements.txt
+├── pytest.ini
 └── README.md
 ```
 
-## 🚀 快速开始
+## 快速开始
 
-### 1. 创建虚拟环境并安装依赖
+### 1. 创建虚拟环境
+
+Windows:
+
+```powershell
+python -m venv venv
+venv\Scripts\activate
+```
+
+macOS / Linux:
 
 ```bash
-cd anomaly_system
 python3 -m venv venv
-source venv/bin/activate          # macOS / Linux
-# venv\Scripts\activate           # Windows
+source venv/bin/activate
+```
+
+### 2. 安装依赖
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. 启动 Web 界面
+### 3. 启动应用
 
 ```bash
 streamlit run app.py
 ```
 
-浏览器自动打开 `http://localhost:8501`。
+启动后访问：
 
-### 3. 推荐演示流程
+```text
+http://localhost:8501
+```
 
-1. **数据管理 → 数据导入 → 一键生成示例 TDMS** —— 自动生成 3 通道（vibration / temperature / current）共 15000 个采样点，含人为注入的尖峰异常
-2. **批量检测 → 选通道 + 选算法 → 开始检测** —— 全量检测，标记异常入库，自动生成告警
-3. **实时监控 → 选通道 + 选算法 → 流式仿真** —— 启动后台线程实时推送数据，看异常红点 + 健康分动态变化
-4. **算法评估** —— 在合成 ground truth 数据上对 5 种算法横向对比
-5. **告警中心** —— 查看 / 确认 / 导出告警
-
-## 🧪 运行测试
+如果默认端口被占用，可以指定其他端口：
 
 ```bash
-pytest                                                    # 跑全部测试
-pytest --cov=core --cov=algorithms --cov-report=term      # 带覆盖率
+streamlit run app.py --server.port 8502
 ```
 
-当前 25 个用例，**85% 覆盖率**。
+## 推荐使用流程
 
-## 📊 算法说明
+1. 进入“数据管理”页面，创建设备和通道，或导入 TDMS / 示例数据。
+2. 进入“批量检测”页面，选择通道和算法，执行全量异常检测。
+3. 进入“实时监控”页面，选择通道和检测算法，查看静态曲线或启动流式仿真。
+4. 进入“告警中心”页面，查看、确认、关闭或导出告警记录。
+5. 使用测试数据时，可在算法评估模块中对比不同检测算法的效果。
 
-| 算法 | 类型 | 原理 | 适用场景 |
-|------|------|------|---------|
-| **3-Sigma** | 统计法 | 偏离均值超 k×σ 即异常 | 数据近似正态分布 |
-| **IQR** | 统计法 | 超出 [Q1−k·IQR, Q3+k·IQR] | 数据有偏分布 |
-| **MAD** | 鲁棒统计 | 基于中位数偏差，抗离群点污染 | 噪声大、有少量极值 |
-| **Isolation Forest** | 集成学习 | 用随机森林孤立异常点 | 高维 / 大数据 |
-| **LOF** | 密度法 | 局部离群因子，对比邻居密度 | 局部异常、簇结构数据 |
+## 内置算法
 
-后两种支持 **滑窗特征工程**：将原始信号转为 6 维统计特征（mean / std / rms / peak-to-peak / kurtosis / skew），更适合工业振动信号。
+| 算法 | 类型 | 适用场景 |
+| --- | --- | --- |
+| 3-Sigma | 统计方法 | 数据接近正态分布，异常点偏离均值明显 |
+| IQR | 统计方法 | 数据分布偏斜或存在极端值 |
+| MAD | 鲁棒统计 | 噪声较大、希望降低离群点对阈值的影响 |
+| Isolation Forest | 机器学习 | 高维特征或复杂工业振动信号 |
+| LOF | 机器学习 | 局部密度异常、簇状分布数据 |
 
-## ❤️ 健康评分公式
+## 数据模型
 
+系统主要包含以下数据表：
+
+- `devices`：设备信息。
+- `channels`：设备通道和采样配置。
+- `signals`：时序信号点、异常标记和异常分数。
+- `alerts`：告警事件、等级、状态和备注。
+- `realtime_anomalies`：实时检测到的异常点。
+- `detection_runs`：批量检测运行记录和指标。
+
+## 健康评分
+
+健康分基于异常率和异常严重程度计算，默认满分 100：
+
+```text
+score = 100 - (anomaly_rate_percent * 2.0 * max(1, mean_severity / 3.0))
 ```
-score = 100 - (anomaly_rate_% × 2.0 × max(1, mean_severity / 3.0))
+
+分数越低表示设备状态越差。页面中会按健康分展示不同风险等级。
+
+## 运行测试
+
+```bash
+pytest
 ```
 
-| 分数 | 等级 | 颜色 |
-|------|------|------|
-| ≥ 90 | 优秀 | 绿 |
-| 75–90 | 良好 | 黄绿 |
-| 60–75 | 注意 | 黄 |
-| 40–60 | 警告 | 橙 |
-| < 40 | 严重 | 红 |
+查看覆盖率：
 
-## 🛠️ 技术栈
+```bash
+pytest --cov=core --cov=algorithms --cov-report=term
+```
 
-- **语言**：Python 3.10+
-- **数据**：nptdms · NumPy · pandas · SciPy
-- **存储**：SQLite + SQLAlchemy 2.0
-- **算法**：scikit-learn
-- **UI**：Streamlit + Plotly
-- **测试**：pytest + pytest-cov
+## 开发说明
 
-## 📝 课程作业说明
+### 添加新算法
 
-本项目对应作业要求：
+1. 在 `algorithms/` 下新增检测器类，并继承 `BaseDetector`。
+2. 实现 `fit`、`predict`、`score`、`get_params` 方法。
+3. 在 `algorithms/registry.py` 中注册算法名称和显示标签。
+4. 重新启动 Streamlit 应用，在页面中选择新算法进行检测。
 
-| 要求 | 实现 |
-|------|------|
-| 数据库（CRUD） | SQLite + 5 张表 + 完整增删改查接口 |
-| 异常检测算法 | 5 种算法 + 评估指标 + 滑窗特征 |
-| 人机交互界面 + 实时监控 | Streamlit 5 页 + 流式仿真引擎 |
-| TDMS 数据格式 | nptdms 解析 + 模拟器生成 |
-| 业务目标 | 设备健康分 + 多级告警 + 历史追溯 |
+### 数据目录
+
+`data/` 目录用于存放本地 SQLite 数据库和 TDMS 示例文件。默认数据库路径由 `core/config.py` 中的 `DB_PATH` 定义。
+
+如需重新初始化本地数据，可以停止应用后删除：
+
+```bash
+data/anomaly.db
+```
+
+再次启动应用时会重新创建数据库表。
+
+## 文档
+
+更多说明可以查看 `docs/` 目录：
+
+- `docs/architecture.md`
+- `docs/algorithms.md`
+- `docs/设计说明书.md`
+- `docs/使用说明书.md`
